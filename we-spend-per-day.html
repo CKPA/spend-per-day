@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>คำนวณเราใช้เงินได้วันละกี่บาท</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    :root{ 
+  --c1:#0fa2a9; /* teal */
+  --c2:#bfe6ff; /* light blue */
+  --c3:#fbfaf6; /* off-white */
+  --c4:#efe2a2; /* light yellow */
+  --c5:#f6a07a; /* peach */
+  --brand:var(--c1);
+  --accent:var(--c5);
+}
+    html,body{font-family: 'Prompt', system-ui, -apple-system, Segoe UI, Roboto, 'Helvetica Neue', Arial, 'Noto Sans Thai', sans-serif;}
+    .card{ @apply bg-white rounded-2xl shadow-md p-5 md:p-6; }
+    .pill{ @apply inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm; }
+    .muted{ @apply text-gray-500; }
+    .btn{ @apply inline-flex items-center justify-center rounded-xl px-4 py-2 font-medium shadow-sm; }
+    .btn-primary{ @apply text-white; background: var(--brand); }
+    .btn-ghost{ @apply bg-white border border-gray-200 text-gray-700; }
+    .num{ text-align:right; }
+    input[type="number"]::-webkit-outer-spin-button,
+    input[type="number"]::-webkit-inner-spin-button{ -webkit-appearance: none; margin: 0; }
+  </style>
+</head>
+<body class="min-h-screen bg-[var(--c3)]">
+  <header class="sticky top-0 z-10 bg-[var(--c1)] backdrop-blur border-b border-white/30">
+    <div class="max-w-5xl mx-auto px-4 py-4 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+      <h1 class="text-xl md:text-2xl font-semibold text-white">
+        💸 คำนวณ “เราใช้เงินได้วันละกี่บาท?”
+      </h1>
+      <div class="flex gap-2">
+        <button id="btnSample" class="btn btn-ghost">โหลดตัวอย่าง</button>
+        <button id="btnReset" class="btn btn-ghost">ล้างข้อมูล</button>
+        <button id="btnSave" class="btn btn-primary">บันทึกในเครื่อง</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-5xl mx-auto px-4 py-6 md:py-10 grid gap-6">
+    <!-- ส่วนตั้งค่าเบื้องต้น -->
+    <section class="card">
+      <div class="flex flex-col md:flex-row md:items-center gap-4">
+        <div class="grow">
+          <label class="block text-sm text-gray-600 mb-1">รายได้ต่อเดือน (บาท)</label>
+          <input id="incomeMonthly" type="text" inputmode="decimal" class="w-full num rounded-xl border border-gray-200 bg-[var(--c3)] px-4 py-3 focus:outline-none focus:ring-2 focus:ring-violet-300" placeholder="เช่น 20000" />
+        </div>
+        <div>
+          <label class="block text-sm text-gray-600 mb-1">หารจำนวนวัน</label>
+          <div class="flex gap-2">
+            <select id="daysSelect" class="rounded-xl border border-gray-200 bg-white px-3 py-3 focus:outline-none focus:ring-2 focus:ring-violet-300">
+              <option value="30">30 วัน (ค่าเริ่มต้น)</option>
+              <option value="31">31 วัน</option>
+              <option value="28">28 วัน</option>
+              <option value="custom">กำหนดเอง…</option>
+            </select>
+            <input id="daysCustom" type="number" class="w-24 num rounded-xl border border-gray-200 bg-[var(--c3)] px-3 py-3" placeholder="วัน" style="display:none" />
+          </div>
+          <p class="text-xs text-gray-500 mt-1">ใช้หารทั้งรายได้/เดือน และค่าใช้จ่าย/เดือน เพื่อได้ค่าเฉลี่ยต่อวัน</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ตารางค่าใช้จ่าย -->
+    <section class="card">
+      <div class="flex items-center justify-between gap-3 mb-3">
+        <h2 class="text-lg font-semibold">ค่าใช้จ่ายต่อเดือน</h2>
+        <div class="flex gap-2">
+          <button id="addRow" class="btn btn-ghost">+ เพิ่มรายการ</button>
+        </div>
+      </div>
+      <div class="overflow-auto">
+        <table class="min-w-full text-sm">
+          <thead class="text-gray-600">
+            <tr>
+              <th class="text-left py-2 pr-3">รายการ</th>
+              <th class="text-right py-2 pr-3">ค่าใช้จ่าย/เดือน</th>
+              <th class="text-center py-2 pr-3">÷ วัน</th>
+              <th class="text-right py-2 pr-3">= ต่อวัน</th>
+              <th class="py-2"></th>
+            </tr>
+          </thead>
+          <tbody id="expenseBody"></tbody>
+          <tfoot>
+            <tr class="border-t">
+              <td class="py-3 font-medium">รวมค่าใช้จ่ายต่อวัน</td>
+              <td></td>
+              <td class="text-center">—</td>
+              <td class="py-3 text-right font-semibold" id="sumExpenseDaily">0</td>
+              <td></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </section>
+
+    <!-- ผลลัพธ์สรุป -->
+    <section class="grid md:grid-cols-3 gap-4">
+      <div class="card">
+        <div class="pill bg-[var(--c2)] text-[#0c7076]">รายได้ต่อวัน</div>
+        <p class="mt-2 text-3xl font-semibold" id="incomeDaily">0</p>
+        <p class="mt-1 muted text-sm">= รายได้ต่อเดือน ÷ จำนวนวัน</p>
+      </div>
+      <div class="card">
+        <div class="pill bg-[var(--c4)] text-[#7a6b23]">ค่าใช้จ่ายต่อวัน</div>
+        <p class="mt-2 text-3xl font-semibold" id="expenseDaily">0</p>
+        <p class="mt-1 muted text-sm">รวมจากตารางด้านบน</p>
+      </div>
+      <div class="card">
+        <div class="pill" style="background:#fde6d7;color:#c75e2a">เงินที่ใช้ได้ต่อวัน</div>
+        <p class="mt-2 text-4xl font-bold" id="leftDaily">0</p>
+        <p class="mt-1 muted text-sm">= รายได้ต่อวัน − ค่าใช้จ่ายต่อวัน</p>
+      </div>
+    </section>
+
+    <section class="card">
+      <h3 class="font-semibold mb-2">หมายเหตุ</h3>
+      <ul class="list-disc pl-6 text-sm text-gray-600 space-y-1">
+        <li>รายการในตารางคือ “ค่าใช้จ่ายประจำต่อเดือน” เช่น ค่าเช่า ค่าน้ำไฟ ค่างวดรถ ประกัน ฯลฯ (ยัง <b>ไม่รวม</b> ค่าอาหาร/ช้อป/เที่ยว)</li>
+        <li>ผลลัพธ์ “เงินที่ใช้ได้ต่อวัน” คือวงเงินสำหรับกิน/ช้อป/เที่ยว/เก็บออม ในแต่ละวัน</li>
+        <li>ปุ่ม “บันทึกในเครื่อง” จะเก็บข้อมูลลงในเบราว์เซอร์ (LocalStorage) เพื่อกลับมาแก้ไขต่อได้</li>
+      </ul>
+    </section>
+
+    <footer class="py-6 text-center text-xs text-gray-500">สร้างด้วย ❤️ เพื่อช่วยวางแผนการเงินประจำวัน</footer>
+  </main>
+
+<script>
+  // ===== Utilities =====
+  const baht = (n) => (isFinite(n)? n:0).toLocaleString('th-TH', {maximumFractionDigits:0});
+  const getDays = () => {
+    const sel = document.getElementById('daysSelect').value;
+    if(sel === 'custom'){
+      const v = parseInt(document.getElementById('daysCustom').value || '0', 10);
+      return isFinite(v) && v>0 ? v : 30;
+    }
+    return parseInt(sel, 10);
+  }
+  // --- Money helpers ---
+  const parseMoney = (s)=>{ const str = String(s||''); const cleaned = str.replace(/,/g,'').replace(new RegExp('[^0-9\.]','g'),''); return parseFloat(cleaned)||0; };
+  function bindMoneyInput(el){
+    const formatNow = ()=>{
+      const raw = String(el.value||'').replace(/[^0-9]/g,'');
+      if(raw===''){ el.value=''; compute(); return; }
+      const num = parseInt(raw,10);
+      el.value = isFinite(num) ? num.toLocaleString('th-TH') : '';
+      try{ el.selectionStart = el.selectionEnd = el.value.length; }catch(e){}
+      compute();
+    };
+    el.addEventListener('input', formatNow);
+    el.addEventListener('blur', formatNow);
+    el.addEventListener('focus', ()=> el.select());
+  }
+
+  // ===== Expenses table =====
+  const body = document.getElementById('expenseBody');
+  function addRow(data={name:'', monthly:''}){
+    const tr = document.createElement('tr');
+    tr.className = 'border-t';
+    const monthlyStr = (data.monthly!==undefined && data.monthly!==null && data.monthly!=='')
+      ? (parseMoney(data.monthly)).toLocaleString('th-TH')
+      : '';
+    tr.innerHTML = `
+      <td class="py-2 pr-3">
+        <input class="w-full rounded-lg border border-gray-200 bg-white px-3 py-2" placeholder="เช่น ค่าเช่า" value="${data.name||''}">
+      </td>
+      <td class="py-2 pr-3 text-right">
+        <input class="num w-full rounded-lg border border-gray-200 bg-white px-3 py-2" type="text" inputmode="numeric" placeholder="0" value="${monthlyStr}">
+      </td>
+      <td class="py-2 pr-3 text-center days">${getDays()}</td>
+      <td class="py-2 pr-3 text-right daily">0</td>
+      <td class="py-2">
+        <button class="btn btn-ghost text-sm" title="ลบ" aria-label="ลบ">❌</button>
+      </td>`;
+    body.appendChild(tr);
+    const moneyInput = tr.querySelector('td:nth-child(2) input');
+    bindMoneyInput(moneyInput);
+    tr.querySelectorAll('td:first-child input').forEach(i=> i.addEventListener('input', compute));
+    tr.querySelector('button').addEventListener('click', ()=>{ tr.remove(); compute();});
+    compute();
+  }
+
+  document.getElementById('addRow').addEventListener('click', ()=> addRow());
+
+  // ===== Compute =====
+  function compute(){
+    const days = getDays();
+    // update days column
+    body.querySelectorAll('.days').forEach(td=> td.textContent = days);
+
+    // income daily
+    const incomeMonthly = parseMoney(document.getElementById('incomeMonthly').value);
+    const incomeDaily = incomeMonthly / (days || 30);
+    document.getElementById('incomeDaily').textContent = baht(incomeDaily);
+
+    // each row daily + total
+    let sumDaily = 0;
+    [...body.querySelectorAll('tr')].forEach(tr=>{
+      const m = parseMoney(tr.querySelector('td:nth-child(2) input').value);
+      const d = m / (days || 30);
+      tr.querySelector('.daily').textContent = baht(d);
+      sumDaily += d;
+    });
+    document.getElementById('sumExpenseDaily').textContent = baht(sumDaily);
+
+    // summary
+    document.getElementById('expenseDaily').textContent = baht(sumDaily);
+    document.getElementById('leftDaily').textContent = baht(incomeDaily - sumDaily);
+  }
+
+  // Inputs that trigger compute
+  const incomeEl = document.getElementById('incomeMonthly');
+  bindMoneyInput(incomeEl);
+  document.getElementById('daysSelect').addEventListener('change', ()=>{
+    const isCustom = document.getElementById('daysSelect').value === 'custom';
+    document.getElementById('daysCustom').style.display = isCustom ? 'block' : 'none';
+    compute();
+  });
+  document.getElementById('daysCustom').addEventListener('input', compute);
+
+  // ===== Sample & Reset =====
+  document.getElementById('btnSample').addEventListener('click', ()=>{
+    document.getElementById('incomeMonthly').value = (20000).toLocaleString('th-TH');
+    body.innerHTML = '';
+    const preset = [
+      {name:'ค่าเช่า', monthly:3000},
+      {name:'ค่าน้ำ/ค่าไฟ', monthly:1000},
+      {name:'ค่างวดรถ', monthly:5000},
+      {name:'ค่าน้ำมันรถ', monthly:1000},
+      {name:'ค่าประกัน', monthly:600},
+    ];
+    preset.forEach(addRow);
+    document.getElementById('daysSelect').value = '30';
+    document.getElementById('daysCustom').value = '';
+    document.getElementById('daysCustom').style.display = 'none';
+    compute();
+  });
+
+  document.getElementById('btnReset').addEventListener('click', ()=>{
+    if(confirm('ล้างข้อมูลทั้งหมด?')){
+      document.getElementById('incomeMonthly').value = '';
+      body.innerHTML = '';
+      document.getElementById('daysSelect').value = '30';
+      document.getElementById('daysCustom').value = '';
+      document.getElementById('daysCustom').style.display = 'none';
+      compute();
+      localStorage.removeItem('dailyBudgetCalc');
+    }
+  });
+
+  // ===== Save / Load (LocalStorage) =====
+  function snapshot(){
+    const rows = [...body.querySelectorAll('tr')].map(tr=>({
+      name: tr.querySelector('td:first-child input').value,
+      monthly: tr.querySelector('td:nth-child(2) input').value
+    }));
+    return {
+      incomeMonthly: document.getElementById('incomeMonthly').value,
+      daysSel: document.getElementById('daysSelect').value,
+      daysCustom: document.getElementById('daysCustom').value,
+      rows
+    };
+  }
+
+  function loadSnap(s){
+    if(!s) return;
+    document.getElementById('incomeMonthly').value = s.incomeMonthly || '';
+    document.getElementById('daysSelect').value = s.daysSel || '30';
+    document.getElementById('daysCustom').value = s.daysCustom || '';
+    document.getElementById('daysCustom').style.display = (s.daysSel==='custom') ? 'block' : 'none';
+    body.innerHTML = '';
+    (s.rows||[]).forEach(addRow);
+    compute();
+  }
+
+  document.getElementById('btnSave').addEventListener('click', ()=>{
+    localStorage.setItem('dailyBudgetCalc', JSON.stringify(snapshot()));
+    compute();
+    alert('บันทึกแล้วในเครื่องนี้');
+  });
+
+  // Auto-load if exists
+  try{ loadSnap(JSON.parse(localStorage.getItem('dailyBudgetCalc'))); }catch(e){}
+
+  // เริ่มด้วยแถวว่าง 3 รายการ
+  if(body.children.length===0){ addRow(); addRow(); addRow(); }
+  compute();
+</script>
+</body>
+</html>
